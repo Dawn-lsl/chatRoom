@@ -8,7 +8,19 @@ module.exports = validations => {
       if (errors.isEmpty()) {
         return next()
       }
-  
-      res.status(400).json({ errors: errors.array() })
+      const message = [];
+      for (data of errors.array()) {
+        message.push(data["msg"]);
+      }
+      // errors.array()[0].msg,
+      const errData = {
+        code: 1, // 0 means success
+        message: message,
+        data: errors.mapped()
+      };
+      res.status(400).json(
+        errData
+        // { errors: errors.mapped() }
+        )
     }
 }

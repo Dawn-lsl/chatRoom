@@ -1,13 +1,28 @@
 const { PrismaClient } = require('@prisma/client')
-const e = require('cors')
 const prisma = new PrismaClient()
 const nodemailer = require('nodemailer')
 const md5 = require('../util/md5')
+const jwt = require('../util/jwt')
+const { jwtSecret } = require('../config/config.default')
+const exclude = require('../util/exclude')
 
 // 用户登录
 exports.login = async (req, res , next) => {
     try{
-        res.send('post /users')
+        // 数据验证
+        // 生成token
+        const user = req.user
+        const token = await jwt.sign({
+            userId: user.userId
+        },jwtSecret,{
+            expiresIn: 60*60*24
+        })
+        const userWithoutPassword = exclude(user, ['password'])
+        res.apiResponse({...userWithoutPassword,token})
+        // res.status(200).json({
+        //     ...user,
+        //     token
+        // }) 
     } catch (err) {
         next(err)
     }
@@ -26,23 +41,20 @@ exports.register = async (req, res , next) => {
         }
         if(isEmpty.code==code&&isEmpty.email==email){
             let secret = md5(password)
-            const result = await prisma.user.create({
+            const user = await prisma.user.create({
                 data:{
                     userId,
                     userName,
                     email,
                     password: secret
-                },
-                select:{
-                    userId: true,
-                    userName: true,
-                    email: true
                 }
             })
+            const userWithoutPassword = exclude(user, ['password'])
             console.log(req.body)
-            res.status(201).json({
-                result
-            })
+            res.apiResponse(userWithoutPassword,201)
+            // res.status(201).json({
+            //     userWithoutPassword
+            // })
         }else{
             res.send('验证码错误')
         }
@@ -53,7 +65,8 @@ exports.register = async (req, res , next) => {
 // 获取当前登录用户
 exports.getCurrentUser = async (req, res , next) => {
     try{
-        res.send('get /user')
+        res.apiResponse(req.user)
+        // res.status(200).json(req.user)
     } catch (err) {
         next(err)
     }
@@ -61,7 +74,18 @@ exports.getCurrentUser = async (req, res , next) => {
 // 更新当前登录用户
 exports.updateCurrentUser = async (req, res , next) => {
     try{
-        res.send('put /user')
+        console.log(req.body)
+        const user = await prisma.user.update({
+            where: {
+                userId: req.body.userId
+            },
+            data: {
+                ...req.body
+            }
+        })
+        const userWithoutPassword = exclude(user, ['password'])
+        res.apiResponse(userWithoutPassword)
+        // res.status(200).json(userWithoutPassword)
     } catch (err) {
         next(err)
     }
